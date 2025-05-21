@@ -149,14 +149,35 @@ def on_pass_card(data):
     room = data['room']
     card = data['card']
     
+    print(f"Card pass attempt: {card} in room {room}")
+    
     if room not in rooms:
+        print(f"Room {room} not found")
         return
     
     players = rooms[room]['players']
     current_player_id = request.sid
+    current_player_name = None
     
-    # Verify it's the player's turn
-    if current_player_id != players[rooms[room]['turn_index']]['id']:
+    # Find the player's name by their current socket ID
+    for player in players:
+        if player['id'] == current_player_id:
+            current_player_name = player['name']
+            break
+    
+    print(f"Current player: {current_player_name} (ID: {current_player_id})")
+    print(f"Turn index: {rooms[room]['turn_index']}")
+    print(f"Expected player: {players[rooms[room]['turn_index']]['name']}")
+    
+    if not current_player_name:
+        emit('error', {'message': 'Player not found'}, to=current_player_id)
+        return
+    
+    # Get the name of whose turn it is
+    current_turn_name = players[rooms[room]['turn_index']]['name']
+    
+    # Verify it's the player's turn by name, not ID
+    if current_player_name != current_turn_name:
         emit('error', {'message': 'Not your turn'}, to=current_player_id)
         return
     
@@ -177,6 +198,8 @@ def on_pass_card(data):
     
     # Update turn
     rooms[room]['turn_index'] = next_turn_index
+    
+    print(f"Turn passed to: {players[rooms[room]['turn_index']]['name']}")
     
     # Check for winner
     winner = None
@@ -250,6 +273,7 @@ def on_pass_card(data):
             })
         
         emit('game_over', {'rankings': rankings}, to=room)
+
 
 if __name__ == '__main__':
     socketio.run(app, debug=False)
