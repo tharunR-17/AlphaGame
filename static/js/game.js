@@ -11,6 +11,7 @@ function initGame(room, name) {
     socket = io();
     
     socket.on('connect', () => {
+        console.log("Connected to server, joining room:", gameRoom);
         socket.emit('join_room', {room: gameRoom, name: playerName});
     });
     

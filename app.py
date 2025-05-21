@@ -73,14 +73,38 @@ def on_join(data):
     join_room(room)
     player_id = request.sid
     
-    # Add player to the room
-    if player_id not in [p['id'] for p in rooms[room]['players']]:
+    # Check if player exists by name
+    existing_player = None
+    for p in rooms[room]['players']:
+        if p['name'] == name:
+            # Update the socket ID for existing player
+            existing_player = p
+            break
+    
+    if existing_player:
+        # Update socket ID for existing player
+        old_id = existing_player['id']
+        existing_player['id'] = player_id
+        
+        # If game has started, update the hands dictionary
+        if rooms[room]['started'] and old_id in rooms[room]['hands']:
+            rooms[room]['hands'][player_id] = rooms[room]['hands'].pop(old_id)
+    else:
+        # Add new player
         rooms[room]['players'].append({
             'id': player_id,
             'name': name
         })
     
+    # If game has started, send the hand to the player
+    if rooms[room]['started'] and player_id in rooms[room]['hands']:
+        emit('update_hand', {
+            'hand': rooms[room]['hands'][player_id],
+            'current_turn': rooms[room]['players'][rooms[room]['turn_index']]['name']
+        }, to=player_id)
+    
     emit('update_players', {'players': [p['name'] for p in rooms[room]['players']]}, to=room)
+
 
 @socketio.on('start_game')
 def on_start_game(data):
