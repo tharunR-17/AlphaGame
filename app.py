@@ -77,7 +77,7 @@ def on_join(data):
     existing_player = None
     for p in rooms[room]['players']:
         if p['name'] == name:
-            # Update the socket ID for existing player
+            # Update socket ID for existing player
             existing_player = p
             break
     
