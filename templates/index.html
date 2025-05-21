@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alphabet Matching Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Alphabet Matching Game</h1>
+        <h2>Summer Fun with Friends</h2>
+        
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        
+        <div class="form-container">
+            <div class="form-section">
+                <h3>Create New Game</h3>
+                <form action="/create" method="post">
+                    <div class="form-group">
+                        <label for="create-name">Your Name:</label>
+                        <input type="text" id="create-name" name="name" required>
+                    </div>
+                    <button type="submit" class="btn">Create Game</button>
+                </form>
+            </div>
+            
+            <div class="form-section">
+                <h3>Join Existing Game</h3>
+                <form action="/join" method="post">
+                    <div class="form-group">
+                        <label for="join-name">Your Name:</label>
+                        <input type="text" id="join-name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="room">Room Code:</label>
+                        <input type="text" id="room" name="room" required>
+                    </div>
+                    <button type="submit" class="btn">Join Game</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="game-rules">
+            <h3>Game Rules</h3>
+            <p>Be the first player to collect all four of the same alphabet letter.</p>
+            <ul>
+                <li>Each player aims to collect 4 of the same letter</li>
+                <li>On your turn, pass a card you don't want to the next player</li>
+                <li>First to get 4 matching letters wins!</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

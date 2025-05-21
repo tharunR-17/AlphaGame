@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alphabet Matching Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Alphabet Matching Game</h1>
+        
+        <div class="game-info">
+            <h2>Room: <span id="room-code">{{ room }}</span></h2>
+            <h3>Current Turn: <span id="current-turn">Waiting...</span></h3>
+        </div>
+        
+        <div class="game-board">
+            <div class="hand-container">
+                <h3>Your Hand:</h3>
+                <div id="player-hand" class="cards"></div>
+            </div>
+            
+            <div class="action-container">
+                <div id="game-message"></div>
+                <div id="card-selection" class="hidden">
+                    <p>Select a card to pass:</p>
+                    <div id="selectable-cards" class="cards"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="game-over" class="hidden">
+            <h2>Game Over!</h2>
+            <div id="rankings"></div>
+            <a href="/" class="btn">New Game</a>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+    <script>
+        initGame("{{ room }}", "{{ session['name'] }}");
+    </script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Lobby</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Game Lobby</h1>
+        
+        <div class="room-info">
+            <h2>Room Code: <span id="room-code">{{ room }}</span></h2>
+            <p>Share this code with your friends to join the game</p>
+        </div>
+        
+        <div class="players-container">
+            <h3>Players in Room:</h3>
+            <ul id="players-list"></ul>
+        </div>
+        
+        <button id="start-game" class="btn">Start Game</button>
+    </div>
+    
+    <script>
+        const socket = io();
+        const room = "{{ room }}";
+        const playerName = "{{ session['name'] }}";
+        
+        socket.on('connect', () => {
+            socket.emit('join_room', {room: room, name: playerName});
+        });
+        
+        socket.on('update_players', (data) => {
+            const playersList = document.getElementById('players-list');
+            playersList.innerHTML = '';
+            
+            data.players.forEach(player => {
+                const li = document.createElement('li');
+                li.textContent = player;
+                playersList.appendChild(li);
+            });
+        });
+        
+        socket.on('game_started', () => {
+            window.location.href = `/game/${room}`;
+        });
+        
+        socket.on('error', (data) => {
+            alert(data.message);
+        });
+        
+        document.getElementById('start-game').addEventListener('click', () => {
+            socket.emit('start_game', {room: room});
+        });
+    </script>
+</body>
+</html>
