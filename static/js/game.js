@@ -16,6 +16,7 @@ function initGame(room, name) {
     });
     
     socket.on('update_hand', (data) => {
+        console.log("Received hand update:", data);
         myHand = data.hand;
         updateHandDisplay();
         
@@ -78,24 +79,29 @@ function updateSelectableCards() {
         }
     }
     
-    // If we have 4 of a kind, we've won, so we can pass any card
-    // Otherwise, prioritize cards that aren't helping us get 4 of a kind
+    // Make all cards selectable when it's your turn
     myHand.forEach(card => {
         const cardElement = document.createElement('div');
         cardElement.className = 'card selectable';
         cardElement.textContent = card;
         
-        // If this isn't our target letter or we have 4 of a kind
-        if (card !== maxLetter || maxCount === 4) {
-            cardElement.addEventListener('click', () => passCard(card));
-        }
+        // Add click event to all cards
+        cardElement.addEventListener('click', () => {
+            console.log("Card clicked:", card);  // Debug log
+            passCard(card);
+        });
         
         selectableContainer.appendChild(cardElement);
     });
 }
 
 function passCard(card) {
-    if (!isMyTurn) return;
+    if (!isMyTurn) {
+        console.log("Not your turn!");
+        return;
+    }
+    
+    console.log("Passing card:", card, "Room:", gameRoom);
     
     socket.emit('pass_card', {
         room: gameRoom,
@@ -114,16 +120,22 @@ function updateGameMessage() {
 }
 
 function showGameOver(rankings) {
-    document.getElementById('game-board').classList.add('hidden');
-    document.getElementById('game-over').classList.remove('hidden');
+    const gameBoard = document.querySelector('.game-board');
+    if (gameBoard) gameBoard.classList.add('hidden');
+    
+    const gameOver = document.getElementById('game-over');
+    if (gameOver) gameOver.classList.remove('hidden');
     
     const rankingsContainer = document.getElementById('rankings');
-    rankingsContainer.innerHTML = '';
-    
-    rankings.forEach(player => {
-        const rankItem = document.createElement('div');
-        rankItem.className = `rank-item rank-${player.rank}`;
-        rankItem.textContent = `${player.rank}. ${player.name} - ${player.matches} matches`;
-        rankingsContainer.appendChild(rankItem);
-    });
+    if (rankingsContainer) {
+        rankingsContainer.innerHTML = '';
+        
+        rankings.forEach(player => {
+            const rankItem = document.createElement('div');
+            rankItem.className = `rank-item rank-${player.rank}`;
+            rankItem.textContent = `${player.rank}. ${player.name} - ${player.matches} matches`;
+            rankingsContainer.appendChild(rankItem);
+        });
+    }
 }
+
