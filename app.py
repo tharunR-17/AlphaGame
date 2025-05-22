@@ -142,60 +142,73 @@ def on_start_game(data):
 def on_pass_card(data):
     room = data['room']
     card = data['card']
-
-    print(f"Card pass attempt: {card} in room {room}")
-
+    
+    print(f"CARD PASS: Attempting to pass card {card} in room {room}")
+    
     if room not in rooms:
-        print(f"Room {room} not found")
+        print(f"ERROR: Room {room} not found")
         return
-
+    
     players = rooms[room]['players']
     current_player_id = request.sid
-    current_player_name = None
-
+    
+    # Print the current state before any changes
+    print(f"BEFORE PASS: Current hands state:")
+    for player in players:
+        player_id = player['id']
+        player_name = player['name']
+        if player_id in rooms[room]['hands']:
+            print(f"  - {player_name} (ID: {player_id}): {rooms[room]['hands'][player_id]}")
+        else:
+            print(f"  - {player_name} (ID: {player_id}): NO HAND FOUND")
+    
+    # Find current player by socket ID
+    current_player = None
     for player in players:
         if player['id'] == current_player_id:
-            current_player_name = player['name']
+            current_player = player
             break
-
-    print(f"Current player: {current_player_name} (ID: {current_player_id})")
-    print(f"Turn index: {rooms[room]['turn_index']}")
-    print(f"Expected player: {players[rooms[room]['turn_index']]['name']}")
-
-    if not current_player_name:
+    
+    if not current_player:
+        print(f"ERROR: Player with socket ID {current_player_id} not found")
         emit('error', {'message': 'Player not found'}, to=current_player_id)
         return
-
-    current_turn_name = players[rooms[room]['turn_index']]['name']
-
-    if current_player_name != current_turn_name:
+    
+    # Verify it's the player's turn
+    current_turn_player = players[rooms[room]['turn_index']]
+    if current_player['name'] != current_turn_player['name']:
+        print(f"ERROR: Not {current_player['name']}'s turn. It's {current_turn_player['name']}'s turn")
         emit('error', {'message': 'Not your turn'}, to=current_player_id)
         return
-
-    # Check hand exists for this player
+    
+    # Verify player has the card
     if current_player_id not in rooms[room]['hands']:
-        emit('error', {'message': 'Hand not found for this player'}, to=current_player_id)
+        print(f"ERROR: No hand found for player {current_player['name']} (ID: {current_player_id})")
+        emit('error', {'message': 'Hand not found'}, to=current_player_id)
         return
-
+    
     if card not in rooms[room]['hands'][current_player_id]:
+        print(f"ERROR: Card {card} not in player's hand: {rooms[room]['hands'][current_player_id]}")
         emit('error', {'message': 'You don\'t have that card'}, to=current_player_id)
         return
-
+    
     # Remove card from current player
     rooms[room]['hands'][current_player_id].remove(card)
-
+    print(f"SUCCESS: Removed card {card} from {current_player['name']}")
+    
     # Move to next player
     next_turn_index = (rooms[room]['turn_index'] + 1) % len(players)
-    next_player_id = players[next_turn_index]['id']
-
+    next_player = players[next_turn_index]
+    next_player_id = next_player['id']
+    
     # Add card to next player
     rooms[room]['hands'][next_player_id].append(card)
-
+    print(f"SUCCESS: Added card {card} to {next_player['name']}")
+    
     # Update turn
     rooms[room]['turn_index'] = next_turn_index
-
-    print(f"Turn passed to: {players[rooms[room]['turn_index']]['name']}")
-
+    print(f"SUCCESS: Turn passed to {next_player['name']}")
+    
     # Check for winner
     winner = None
     rankings = []
@@ -225,6 +238,21 @@ def on_pass_card(data):
             'current_turn': players[rooms[room]['turn_index']]['name'],
             'winner': winner
         }, to=player['id'])
+    
+    # Also broadcast a turn change to the entire room
+    emit('turn_changed', {
+        'current_turn': players[rooms[room]['turn_index']]['name']
+    }, to=room)
+    
+    # Print the state after changes
+    print(f"AFTER PASS: Updated hands state:")
+    for player in players:
+        player_id = player['id']
+        player_name = player['name']
+        if player_id in rooms[room]['hands']:
+            print(f"  - {player_name} (ID: {player_id}): {rooms[room]['hands'][player_id]}")
+        else:
+            print(f"  - {player_name} (ID: {player_id}): NO HAND FOUND")
     
     # If game is over, calculate rankings
     if winner:
@@ -268,6 +296,7 @@ def on_pass_card(data):
             })
         
         emit('game_over', {'rankings': rankings}, to=room)
+
 
 
 if __name__ == '__main__':

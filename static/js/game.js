@@ -30,6 +30,14 @@ function initGame(room, name) {
         }
     });
     
+    socket.on('turn_changed', (data) => {
+        console.log("Turn changed event received:", data);
+        document.getElementById('current-turn').textContent = data.current_turn;
+        isMyTurn = (data.current_turn === playerName);
+        updateGameMessage();
+    });
+
+    
     socket.on('game_over', (data) => {
         showGameOver(data.rankings);
     });
@@ -102,6 +110,12 @@ function passCard(card) {
     }
     
     console.log("Passing card:", card, "Room:", gameRoom);
+
+    // Disable card selection until server confirms
+    document.querySelectorAll('.card.selectable').forEach(el => {
+        el.style.pointerEvents = 'none';
+        el.classList.add('disabled');
+    });
     
     socket.emit('pass_card', {
         room: gameRoom,
