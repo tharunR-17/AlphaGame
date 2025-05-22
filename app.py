@@ -66,44 +66,38 @@ def game(room):
 def on_join(data):
     room = data['room']
     name = data['name']
-    
+
     if room not in rooms:
         return
-    
+
     join_room(room)
     player_id = request.sid
-    
-    # Check if player exists by name
+
+    # Look for existing player by name
     existing_player = None
     for p in rooms[room]['players']:
         if p['name'] == name:
-            # Update socket ID for existing player
             existing_player = p
             break
-    
+
     if existing_player:
-        # Update socket ID for existing player
         old_id = existing_player['id']
         existing_player['id'] = player_id
-        
-        # If game has started, update the hands dictionary
-        if rooms[room]['started'] and old_id in rooms[room]['hands']:
+        # Always move hand to new socket id if it exists
+        if old_id in rooms[room]['hands']:
             rooms[room]['hands'][player_id] = rooms[room]['hands'].pop(old_id)
     else:
-        # Add new player
-        rooms[room]['players'].append({
-            'id': player_id,
-            'name': name
-        })
-    
-    # If game has started, send the hand to the player
+        rooms[room]['players'].append({'id': player_id, 'name': name})
+
+    # Always send hand if game has started and player has a hand
     if rooms[room]['started'] and player_id in rooms[room]['hands']:
         emit('update_hand', {
             'hand': rooms[room]['hands'][player_id],
             'current_turn': rooms[room]['players'][rooms[room]['turn_index']]['name']
         }, to=player_id)
-    
+
     emit('update_players', {'players': [p['name'] for p in rooms[room]['players']]}, to=room)
+
 
 
 @socketio.on('start_game')
@@ -148,59 +142,60 @@ def on_start_game(data):
 def on_pass_card(data):
     room = data['room']
     card = data['card']
-    
+
     print(f"Card pass attempt: {card} in room {room}")
-    
+
     if room not in rooms:
         print(f"Room {room} not found")
         return
-    
+
     players = rooms[room]['players']
     current_player_id = request.sid
     current_player_name = None
-    
-    # Find the player's name by their current socket ID
+
     for player in players:
         if player['id'] == current_player_id:
             current_player_name = player['name']
             break
-    
+
     print(f"Current player: {current_player_name} (ID: {current_player_id})")
     print(f"Turn index: {rooms[room]['turn_index']}")
     print(f"Expected player: {players[rooms[room]['turn_index']]['name']}")
-    
+
     if not current_player_name:
         emit('error', {'message': 'Player not found'}, to=current_player_id)
         return
-    
-    # Get the name of whose turn it is
+
     current_turn_name = players[rooms[room]['turn_index']]['name']
-    
-    # Verify it's the player's turn by name, not ID
+
     if current_player_name != current_turn_name:
         emit('error', {'message': 'Not your turn'}, to=current_player_id)
         return
-    
-    # Verify player has the card
+
+    # Check hand exists for this player
+    if current_player_id not in rooms[room]['hands']:
+        emit('error', {'message': 'Hand not found for this player'}, to=current_player_id)
+        return
+
     if card not in rooms[room]['hands'][current_player_id]:
         emit('error', {'message': 'You don\'t have that card'}, to=current_player_id)
         return
-    
+
     # Remove card from current player
     rooms[room]['hands'][current_player_id].remove(card)
-    
+
     # Move to next player
     next_turn_index = (rooms[room]['turn_index'] + 1) % len(players)
     next_player_id = players[next_turn_index]['id']
-    
+
     # Add card to next player
     rooms[room]['hands'][next_player_id].append(card)
-    
+
     # Update turn
     rooms[room]['turn_index'] = next_turn_index
-    
+
     print(f"Turn passed to: {players[rooms[room]['turn_index']]['name']}")
-    
+
     # Check for winner
     winner = None
     rankings = []
