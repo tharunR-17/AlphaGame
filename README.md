@@ -2,17 +2,23 @@
 
 A real-time multiplayer card game where players compete to collect all four cards of the same letter. Perfect for summer fun with friends, this web-based game allows players to join from different locations.
 
+---
+
 ## Game Overview
 
 **Objective:** Be the first player to collect all four cards of the same alphabet letter (e.g., all A's, all B's, or all C's).
 
 **Players:** 2-3 players (can be expanded for more)
 
+---
+
 **Game Flow:**
 1. Players join a shared room using a unique code
 2. Each player receives 4 random cards
 3. On their turn, players pass a card they don't want to the next player
 4. Play continues until someone collects 4 matching cards
+
+---
 
 ## Features
 
@@ -22,12 +28,15 @@ A real-time multiplayer card game where players compete to collect all four card
 - **Visual Card Interface:** Intuitive drag-and-drop card selection
 - **Automatic Scoring:** Tracks player rankings at game end
 
+---
 ## Technology Stack
 
 - **Frontend:** HTML, CSS, JavaScript
 - **Backend:** Python with Flask
 - **Real-time Communication:** Socket.IO
 - **Deployment:** Compatible with Render, PythonAnywhere, and other hosting platforms
+
+---
 
 ## Installation
 
@@ -61,6 +70,8 @@ A real-time multiplayer card game where players compete to collect all four card
 
 5. Open your browser and navigate to `http://localhost:5000`
 
+---
+
 ## Deployment
 
 ### Deploying to Render
@@ -79,6 +90,8 @@ A real-time multiplayer card game where players compete to collect all four card
 3. Set up a virtual environment and install dependencies
 4. Configure a web app with Flask
 5. Set the WSGI configuration file to use your app
+
+---
 
 ## How to Play
 
@@ -99,6 +112,8 @@ A real-time multiplayer card game where players compete to collect all four card
    - Try to collect 4 cards of the same letter
    - First player to get 4 matching cards wins!
 
+---
+
 ## Game Rules
 
 - Each player aims to collect 4 cards of the same letter
@@ -106,12 +121,15 @@ A real-time multiplayer card game where players compete to collect all four card
 - You can only pass cards on your turn
 - The game ends when a player collects 4 matching cards
 - Players are ranked based on how many matching cards they have
+---
 
 ## Proprietary License
 
 This project is proprietary and confidential. All rights reserved.
 
 Unauthorized copying, distribution, modification, public display, or public performance of this software is strictly prohibited.
+
+---
 
 ## Acknowledgments
 
