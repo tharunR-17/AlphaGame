@@ -118,3 +118,15 @@ Unauthorized copying, distribution, modification, public display, or public perf
 - Inspired by classic card matching games
 - Built with Flask and Socket.IO for real-time gameplay
 - Special thanks to all contributors and testers
+
+---
+
+## Contact
+
+Feel free to reach out for questions, suggestions, or collaborations!
+
+**Maintainer:** Tharun R
+
+**Email:** [tharunravi71@gmail.com](mailto:tharunravi71@gmail.com)
+
+**LinkedIn:** https://www.linkedin.com/in/tharun-r-a7bba7271
