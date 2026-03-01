@@ -1,121 +1,71 @@
 let socket;
 let myHand = [];
 let isMyTurn = false;
-let gameRoom;
-let playerName;
+let gameRoom, playerName;
 
 function initGame(room, name) {
     gameRoom = room;
     playerName = name;
-    
     socket = io();
-    
+
+    const overlay = document.getElementById('reconnect-overlay');
+
     socket.on('connect', () => {
-        console.log("Connected to server, joining room:", gameRoom);
+        overlay.classList.add('hidden');
         socket.emit('join_room', {room: gameRoom, name: playerName});
     });
-    
-    socket.on('update_hand', (data) => {
-        console.log("Received hand update:", data);
-        myHand = data.hand;
-        updateHandDisplay();
-        
-        document.getElementById('current-turn').textContent = data.current_turn;
-        isMyTurn = (data.current_turn === playerName);
-        
-        updateGameMessage();
-        
-        if (data.winner) {
-            document.getElementById('game-message').textContent = `${data.winner} has won the game!`;
-        }
-    });
-    
-    socket.on('turn_changed', (data) => {
-        console.log("Turn changed event received:", data);
-        document.getElementById('current-turn').textContent = data.current_turn;
-        isMyTurn = (data.current_turn === playerName);
-        updateGameMessage();
+
+    socket.on('disconnect', () => {
+        overlay.classList.remove('hidden');
     });
 
-    
-    socket.on('game_over', (data) => {
-        showGameOver(data.rankings);
+    socket.on('update_hand', (data) => {
+        myHand = data.hand;
+        isMyTurn = (data.current_turn === playerName);
+        document.getElementById('current-turn').textContent = data.current_turn;
+        updateHandDisplay();
+        
+        const msg = document.getElementById('game-message');
+        if (data.winner) {
+            msg.textContent = `🎉 ${data.winner} won the game!`;
+        } else {
+            msg.textContent = isMyTurn ? "🌟 Your turn! Pick a card." : "⏳ Waiting...";
+        }
     });
-    
-    socket.on('error', (data) => {
-        alert(data.message);
-    });
+
+    socket.on('game_over', (data) => showGameOver(data.rankings));
 }
 
 function updateHandDisplay() {
-    const handContainer = document.getElementById('player-hand');
-    handContainer.innerHTML = '';
+    const container = document.getElementById('player-hand');
+    container.innerHTML = '';
     
-    myHand.forEach(card => {
-        const cardElement = document.createElement('div');
-        cardElement.className = 'card';
-        cardElement.textContent = card;
-        handContainer.appendChild(cardElement);
+    myHand.forEach((card, i) => {
+        const div = document.createElement('div');
+        div.className = `card letter-${card} ${isMyTurn ? 'selectable' : ''}`;
+        div.textContent = card;
+        div.id = `card-slot-${i}`;
+        
+        if (isMyTurn) {
+            div.onclick = () => {
+                isMyTurn = false; // Prevent double-tap
+                div.classList.add('passing');
+                setTimeout(() => {
+                    socket.emit('pass_card', { room: gameRoom, card: card });
+                }, 450);
+            };
+        }
+        container.appendChild(div);
     });
-    
-    // If it's my turn, also update the selectable cards
-    if (isMyTurn) {
-        document.getElementById('card-selection').classList.remove('hidden');
-        updateSelectableCards();
-    } else {
-        document.getElementById('card-selection').classList.add('hidden');
-    }
 }
 
-function updateSelectableCards() {
-    const selectableContainer = document.getElementById('selectable-cards');
-    selectableContainer.innerHTML = '';
-    
-    // Count occurrences of each letter
-    const counts = {};
-    myHand.forEach(card => {
-        counts[card] = (counts[card] || 0) + 1;
-    });
-    
-    // Find the letter with the most occurrences
-    let maxLetter = '';
-    let maxCount = 0;
-    for (const [letter, count] of Object.entries(counts)) {
-        if (count > maxCount) {
-            maxCount = count;
-            maxLetter = letter;
-        }
-    }
-    
-    // Make all cards selectable when it's your turn
-    myHand.forEach(card => {
-        const cardElement = document.createElement('div');
-        cardElement.className = 'card selectable';
-        cardElement.textContent = card;
-        
-        // Add click event to all cards
-        cardElement.addEventListener('click', () => {
-            console.log("Card clicked:", card);  // Debug log
-            passCard(card);
-        });
-        
-        selectableContainer.appendChild(cardElement);
-    });
-}
+// ... include your showGameOver function from the previous version ...
 
 function passCard(card) {
-    if (!isMyTurn) {
-        console.log("Not your turn!");
-        return;
-    }
-    
-    console.log("Passing card:", card, "Room:", gameRoom);
+    if (!isMyTurn) return;
 
-    // Disable card selection until server confirms
-    document.querySelectorAll('.card.selectable').forEach(el => {
-        el.style.pointerEvents = 'none';
-        el.classList.add('disabled');
-    });
+    // Visual feedback: disable the cards immediately after clicking
+    document.querySelectorAll('.card').forEach(el => el.style.pointerEvents = 'none');
     
     socket.emit('pass_card', {
         room: gameRoom,
@@ -124,16 +74,12 @@ function passCard(card) {
 }
 
 function updateGameMessage() {
-    const messageElement = document.getElementById('game-message');
-    
-    if (isMyTurn) {
-        messageElement.textContent = "It's your turn! Select a card to pass.";
-    } else {
-        messageElement.textContent = "Waiting for other player's move...";
-    }
+    const msg = document.getElementById('game-message');
+    msg.textContent = isMyTurn ? "🌟 Your turn! Click a card to pass it." : "⏳ Waiting for the other player...";
 }
 
 function showGameOver(rankings) {
+    // 1. Hide the game board and show the results screen
     const gameBoard = document.querySelector('.game-board');
     if (gameBoard) gameBoard.classList.add('hidden');
     
@@ -142,12 +88,23 @@ function showGameOver(rankings) {
     
     const rankingsContainer = document.getElementById('rankings');
     if (rankingsContainer) {
-        rankingsContainer.innerHTML = '';
+        rankingsContainer.innerHTML = ''; // Clear old data
         
-        rankings.forEach(player => {
+        // 2. Loop through rankings and build the UI
+        rankings.forEach((player, index) => {
+            const rankNumber = index + 1; // 1st, 2nd, 3rd...
             const rankItem = document.createElement('div');
-            rankItem.className = `rank-item rank-${player.rank}`;
-            rankItem.textContent = `${player.rank}. ${player.name} - ${player.matches} matches`;
+            
+            // Apply a specific class for the winner (Rank 1)
+            rankItem.className = `rank-item rank-${rankNumber}`;
+            
+            // FIX: Use the 'matches' key from Python and the local rankNumber
+            rankItem.innerHTML = `
+                <span class="rank-badge">${rankNumber}</span>
+                <span class="player-name">${player.name}</span>
+                <span class="match-count">${player.matches} matches</span>
+            `;
+            
             rankingsContainer.appendChild(rankItem);
         });
     }

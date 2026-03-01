@@ -204,18 +204,28 @@ input {
 }
 
 #rankings {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     margin: 20px 0;
 }
 
 .rank-item {
-    padding: 10px;
-    margin-bottom: 5px;
-    background-color: #f5f5f5;
-    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 5px solid #ccc;
 }
 
+/* Gold for 1st Place */
 .rank-1 {
-    background-color: #ffd700;
+    border-left-color: #ffd700;
+    background: #fffdf0;
+    transform: scale(1.05);
     font-weight: bold;
 }
 
@@ -226,3 +236,64 @@ input {
 .rank-3 {
     background-color: #cd7f32;
 }
+
+.rank-badge {
+    background: #0066cc;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.match-count {
+    color: #666;
+    font-style: italic;
+}
+
+/* ... keep your existing base styles ... */
+
+/* Letter Suit Colors */
+.letter-A { color: #e74c3c; border-color: #e74c3c; }
+.letter-B { color: #3498db; border-color: #3498db; }
+.letter-C { color: #2ecc71; border-color: #2ecc71; }
+.letter-D { color: #f1c40f; border-color: #f1c40f; }
+.letter-E { color: #9b59b6; border-color: #9b59b6; }
+
+/* Pass Animation */
+.card.passing {
+    transform: translateY(-150px) rotate(15deg) scale(0.2);
+    opacity: 0;
+    transition: all 0.5s ease-in;
+    pointer-events: none;
+}
+
+/* Reconnecting Overlay */
+#reconnect-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255,255,255,0.1);
+    border-top: 5px solid #0066cc;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+.hidden { display: none !important; }

@@ -2,12 +2,12 @@ from flask import Flask, render_template, request, session, redirect, url_for
 from flask_socketio import SocketIO, join_room, leave_room, emit
 import random
 import uuid
+import string
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'
+app.config['SECRET_KEY'] = 'summer-fun-2026'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Game rooms storage
 rooms = {}
 
 @app.route('/')
@@ -19,285 +19,133 @@ def create():
     session['name'] = request.form.get('name')
     room_id = str(uuid.uuid4())[:8]
     session['room'] = room_id
-    
-    # Initialize room
     rooms[room_id] = {
         'players': [],
         'started': False,
         'hands': {},
-        'turn_index': 0,
-        'alphabets': ['A', 'B', 'C']  # Default alphabets
+        'turn_index': 0
     }
-    
     return redirect(url_for('lobby', room=room_id))
 
 @app.route('/join', methods=['POST'])
 def join():
     session['name'] = request.form.get('name')
     room_id = request.form.get('room')
-    
     if room_id not in rooms:
         return render_template('index.html', error="Room not found")
-    
     if rooms[room_id]['started']:
         return render_template('index.html', error="Game already in progress")
-        
     session['room'] = room_id
     return redirect(url_for('lobby', room=room_id))
 
 @app.route('/lobby/<room>')
 def lobby(room):
-    if room not in rooms:
-        return redirect(url_for('index'))
-    
+    if room not in rooms: return redirect(url_for('index'))
     return render_template('lobby.html', room=room)
 
 @app.route('/game/<room>')
 def game(room):
-    if room not in rooms or 'name' not in session:
-        return redirect(url_for('index'))
-    
-    if not rooms[room]['started']:
-        return redirect(url_for('lobby', room=room))
-        
+    if room not in rooms or 'name' not in session: return redirect(url_for('index'))
     return render_template('game.html', room=room)
 
 @socketio.on('join_room')
 def on_join(data):
-    room = data['room']
-    name = data['name']
-
-    if room not in rooms:
-        return
-
+    room, name = data['room'], data['name']
+    if room not in rooms: return
+    
     join_room(room)
     player_id = request.sid
 
-    # Look for existing player by name
-    existing_player = None
-    for p in rooms[room]['players']:
-        if p['name'] == name:
-            existing_player = p
-            break
+    # RECONNECTION LOGIC: Check if player already exists in the room
+    existing_player = next((p for p in rooms[room]['players'] if p['name'] == name), None)
 
     if existing_player:
         old_id = existing_player['id']
         existing_player['id'] = player_id
-        # Always move hand to new socket id if it exists
         if old_id in rooms[room]['hands']:
             rooms[room]['hands'][player_id] = rooms[room]['hands'].pop(old_id)
     else:
         rooms[room]['players'].append({'id': player_id, 'name': name})
 
-    # Always send hand if game has started and player has a hand
+    emit('update_players', {'players': [p['name'] for p in rooms[room]['players']]}, to=room)
+
+    # Push state to reconnected player
     if rooms[room]['started'] and player_id in rooms[room]['hands']:
         emit('update_hand', {
             'hand': rooms[room]['hands'][player_id],
             'current_turn': rooms[room]['players'][rooms[room]['turn_index']]['name']
         }, to=player_id)
 
-    emit('update_players', {'players': [p['name'] for p in rooms[room]['players']]}, to=room)
-
-
-
 @socketio.on('start_game')
 def on_start_game(data):
     room = data['room']
-    
-    if room not in rooms:
+    if room not in rooms or len(rooms[room]['players']) < 2:
+        emit('error', {'message': 'Need at least 2 players'}, to=request.sid)
         return
     
-    # Need at least 2 players to start
-    if len(rooms[room]['players']) < 2:
-        emit('error', {'message': 'Need at least 2 players'}, to=room)
-        return
-    
-    # Create and shuffle deck
-    alphabets = rooms[room]['alphabets'][:len(rooms[room]['players'])]  # One alphabet per player
+    # DYNAMIC DECK SCALING
+    num_players = len(rooms[room]['players'])
+    game_letters = list(string.ascii_uppercase)[:num_players]
     deck = []
-    for alpha in alphabets:
-        deck.extend([alpha] * 4)  # 4 cards of each alphabet
-    
+    for char in game_letters: deck.extend([char] * 4)
     random.shuffle(deck)
     
-    # Deal cards to players
-    players = rooms[room]['players']
-    for i, player in enumerate(players):
+    for i, player in enumerate(rooms[room]['players']):
         rooms[room]['hands'][player['id']] = deck[i*4:(i+1)*4]
     
     rooms[room]['started'] = True
     rooms[room]['turn_index'] = 0
-    
-    # Notify all players that the game has started
     emit('game_started', to=room)
     
-    # Send initial hands to each player
-    for player in players:
+    for player in rooms[room]['players']:
         emit('update_hand', {
             'hand': rooms[room]['hands'][player['id']],
-            'current_turn': players[rooms[room]['turn_index']]['name']
+            'current_turn': rooms[room]['players'][0]['name']
         }, to=player['id'])
 
 @socketio.on('pass_card')
 def on_pass_card(data):
-    room = data['room']
-    card = data['card']
-    
-    print(f"CARD PASS: Attempting to pass card {card} in room {room}")
-    
-    if room not in rooms:
-        print(f"ERROR: Room {room} not found")
-        return
+    room, card = data['room'], data['card']
+    if room not in rooms: return
     
     players = rooms[room]['players']
-    current_player_id = request.sid
+    curr_idx = rooms[room]['turn_index']
     
-    # Print the current state before any changes
-    print(f"BEFORE PASS: Current hands state:")
-    for player in players:
-        player_id = player['id']
-        player_name = player['name']
-        if player_id in rooms[room]['hands']:
-            print(f"  - {player_name} (ID: {player_id}): {rooms[room]['hands'][player_id]}")
-        else:
-            print(f"  - {player_name} (ID: {player_id}): NO HAND FOUND")
-    
-    # Find current player by socket ID
-    current_player = None
-    for player in players:
-        if player['id'] == current_player_id:
-            current_player = player
-            break
-    
-    if not current_player:
-        print(f"ERROR: Player with socket ID {current_player_id} not found")
-        emit('error', {'message': 'Player not found'}, to=current_player_id)
-        return
-    
-    # Verify it's the player's turn
-    current_turn_player = players[rooms[room]['turn_index']]
-    if current_player['name'] != current_turn_player['name']:
-        print(f"ERROR: Not {current_player['name']}'s turn. It's {current_turn_player['name']}'s turn")
-        emit('error', {'message': 'Not your turn'}, to=current_player_id)
-        return
-    
-    # Verify player has the card
-    if current_player_id not in rooms[room]['hands']:
-        print(f"ERROR: No hand found for player {current_player['name']} (ID: {current_player_id})")
-        emit('error', {'message': 'Hand not found'}, to=current_player_id)
-        return
-    
-    if card not in rooms[room]['hands'][current_player_id]:
-        print(f"ERROR: Card {card} not in player's hand: {rooms[room]['hands'][current_player_id]}")
-        emit('error', {'message': 'You don\'t have that card'}, to=current_player_id)
-        return
-    
-    # Remove card from current player
-    rooms[room]['hands'][current_player_id].remove(card)
-    print(f"SUCCESS: Removed card {card} from {current_player['name']}")
-    
-    # Move to next player
-    next_turn_index = (rooms[room]['turn_index'] + 1) % len(players)
-    next_player = players[next_turn_index]
-    next_player_id = next_player['id']
-    
-    # Add card to next player
-    rooms[room]['hands'][next_player_id].append(card)
-    print(f"SUCCESS: Added card {card} to {next_player['name']}")
-    
-    # Update turn
-    rooms[room]['turn_index'] = next_turn_index
-    print(f"SUCCESS: Turn passed to {next_player['name']}")
-    
-    # Check for winner
+    # Validation
+    if request.sid != players[curr_idx]['id']: return
+    if card not in rooms[room]['hands'][request.sid]: return
+
+    # Move logic
+    rooms[room]['hands'][request.sid].remove(card)
+    next_idx = (curr_idx + 1) % len(players)
+    rooms[room]['hands'][players[next_idx]['id']].append(card)
+    rooms[room]['turn_index'] = next_idx
+
+    # Win Check
     winner = None
-    rankings = []
-    
-    for player in players:
-        player_id = player['id']
-        hand = rooms[room]['hands'][player_id]
-        
-        # Count occurrences of each letter
-        counts = {}
-        for letter in hand:
-            if letter in counts:
-                counts[letter] += 1
-            else:
-                counts[letter] = 1
-        
-        max_count = max(counts.values()) if counts else 0
-        
-        if max_count == 4:  # Player has all 4 of a letter
-            winner = player['name']
+    for p in players:
+        hand = rooms[room]['hands'].get(p['id'], [])
+        if any(hand.count(letter) == 4 for letter in set(hand)):
+            winner = p['name']
             break
-    
-    # Update all players
-    for player in players:
+
+    # Broadcast updates
+    for p in players:
         emit('update_hand', {
-            'hand': rooms[room]['hands'][player['id']],
+            'hand': rooms[room]['hands'][p['id']],
             'current_turn': players[rooms[room]['turn_index']]['name'],
             'winner': winner
-        }, to=player['id'])
-    
-    # Also broadcast a turn change to the entire room
-    emit('turn_changed', {
-        'current_turn': players[rooms[room]['turn_index']]['name']
-    }, to=room)
-    
-    # Print the state after changes
-    print(f"AFTER PASS: Updated hands state:")
-    for player in players:
-        player_id = player['id']
-        player_name = player['name']
-        if player_id in rooms[room]['hands']:
-            print(f"  - {player_name} (ID: {player_id}): {rooms[room]['hands'][player_id]}")
-        else:
-            print(f"  - {player_name} (ID: {player_id}): NO HAND FOUND")
-    
-    # If game is over, calculate rankings
+        }, to=p['id'])
+
     if winner:
-        # Calculate rankings based on most matched letters
-        player_matches = []
-        for player in players:
-            player_id = player['id']
-            hand = rooms[room]['hands'][player_id]
-            
-            # Count occurrences of each letter
-            counts = {}
-            for letter in hand:
-                if letter in counts:
-                    counts[letter] += 1
-                else:
-                    counts[letter] = 1
-            
-            max_count = max(counts.values()) if counts else 0
-            player_matches.append({
-                'name': player['name'],
-                'max_matches': max_count
-            })
-        
-        # Sort by max_matches (descending)
-        player_matches.sort(key=lambda x: x['max_matches'], reverse=True)
-        
-        # Assign ranks
-        rankings = []
-        current_rank = 1
-        current_matches = -1
-        
-        for i, player in enumerate(player_matches):
-            if player['max_matches'] != current_matches:
-                current_rank = i + 1
-                current_matches = player['max_matches']
-            
-            rankings.append({
-                'name': player['name'],
-                'rank': current_rank,
-                'matches': current_matches
-            })
-        
-        emit('game_over', {'rankings': rankings}, to=room)
-
-
+        # Simplified ranking: sorting by max matches
+        ranks = []
+        for p in players:
+            h = rooms[room]['hands'][p['id']]
+            max_m = max([h.count(l) for l in set(h)]) if h else 0
+            ranks.append({'name': p['name'], 'matches': max_m})
+        ranks.sort(key=lambda x: x['matches'], reverse=True)
+        emit('game_over', {'rankings': ranks}, to=room)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=False)
+    socketio.run(app, debug=True)
